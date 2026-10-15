@@ -18,6 +18,11 @@ interface GithubGraphqlCommentResult {
   };
 }
 
+const ATTACHMENT_REPOSITORY_ID = '1420133646';
+const ATTACHMENT_ISSUE_NODE_ID = 'I_kwDOVKWFDs8AAAABXURqTA';
+const ATTACHMENT_ISSUE_URL =
+  'https://github.com/Lvbey/gkd-inspect-attachment/issues/1';
+
 const graphqlFetch = async (
   data: unknown,
 ): Promise<GithubGraphqlCommentResult> => {
@@ -28,7 +33,7 @@ const graphqlFetch = async (
       accept: 'application/json',
       'github-verified-fetch': 'true',
       origin: 'https://github.com',
-      referer: 'https://github.com/gkd-kit/inspect/issues/46',
+      referer: ATTACHMENT_ISSUE_URL,
     },
     body: JSON.stringify(data),
   })
@@ -49,7 +54,7 @@ export const uploadAsset = async (
   name: string,
 ): Promise<PoliciesAsset> => {
   const r = await uploadPoliciesAssets({
-    repositoryId: '661952005',
+    repositoryId: ATTACHMENT_REPOSITORY_ID,
     file: new File([fileBit], name),
     fetch: enhanceFetch,
   }).catch(async (e) => {
@@ -59,40 +64,44 @@ export const uploadAsset = async (
     throw e;
   });
   // send file url text to github comment
-  const commentResult = await graphqlFetch({
+  await graphqlFetch({
     persistedQueryName: 'addCommentMutation',
     query: 'edafa18ab5734f05c9893cbc92d0dfb1',
     variables: {
       connections: [
-        'client:I_kwDOJ3SWBc6viUWN:__Issue__backTimelineItems_connection(visibleEventsOnly:true)',
+        `client:${ATTACHMENT_ISSUE_NODE_ID}:__Issue__backTimelineItems_connection(visibleEventsOnly:true)`,
       ],
       input: {
         body: r.href,
-        subjectId: 'I_kwDOJ3SWBc6viUWN',
+        subjectId: ATTACHMENT_ISSUE_NODE_ID,
       },
     },
-  });
-  // delay is needed
-  await delay(1000);
-  // unsubscribe the comment
-  await graphqlFetch({
-    persistedQueryName: 'updateIssueSubscriptionMutation',
-    query: 'd0752b2e49295017f67c84f21bfe41a3',
-    variables: {
-      input: { state: 'UNSUBSCRIBED', subscribableId: 'I_kwDOJ3SWBc6viUWN' },
-    },
-  });
-  // delete the comment
-  await graphqlFetch({
-    persistedQueryName: 'deleteIssueCommentMutation',
-    query: 'b0f125991160e607a64d9407db9c01b3',
-    variables: {
-      connections: [
-        'client:I_kwDOJ3SWBc6viUWN:__Issue__frontTimelineItems_connection(visibleEventsOnly:true)',
-        'client:I_kwDOJ3SWBc6viUWN:__Issue__backTimelineItems_connection(visibleEventsOnly:true)',
-      ],
-      input: { id: commentResult.data.addComment.timelineEdge.node.id },
-    },
+  }).then(async (commentResult) => {
+    // delay is needed
+    await delay(1000);
+    // unsubscribe the comment
+    await graphqlFetch({
+      persistedQueryName: 'updateIssueSubscriptionMutation',
+      query: 'd0752b2e49295017f67c84f21bfe41a3',
+      variables: {
+        input: {
+          state: 'UNSUBSCRIBED',
+          subscribableId: ATTACHMENT_ISSUE_NODE_ID,
+        },
+      },
+    });
+    // delete the comment
+    await graphqlFetch({
+      persistedQueryName: 'deleteIssueCommentMutation',
+      query: 'b0f125991160e607a64d9407db9c01b3',
+      variables: {
+        connections: [
+          `client:${ATTACHMENT_ISSUE_NODE_ID}:__Issue__frontTimelineItems_connection(visibleEventsOnly:true)`,
+          `client:${ATTACHMENT_ISSUE_NODE_ID}:__Issue__backTimelineItems_connection(visibleEventsOnly:true)`,
+        ],
+        input: { id: commentResult.data.addComment.timelineEdge.node.id },
+      },
+    });
   });
   return r;
 };
